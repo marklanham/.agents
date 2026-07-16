@@ -22,7 +22,7 @@ Read `.claude/ui-review.json` from the repo root before doing anything else. If 
 
 ```
 ❌  No .claude/ui-review.json found. Create one to configure this command.
-    See the schema in ~/.claude/commands/ui-review.md for required fields.
+    See the schema in this skill's SKILL.md for required fields.
 ```
 
 ### Config schema

@@ -1,36 +1,81 @@
-$agents = @(
-    "guardian","craftsman","pragmatist","architect","user-advocate","historian",
-    "director","orchestrator","iterative-orchestrator","senior-engineer",
-    "qa-gatekeeper","security-analyst","code-reviewer","accessibility-reviewer",
-    "dependency-reviewer","docs-updater","migration-reviewer",
-    "observability-reviewer","performance-reviewer"
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$TargetDir,
+    [switch]$Claude,
+    [switch]$Devin,
+    [switch]$Cursor,
+    [switch]$Windsurf,
+    [switch]$All
 )
 
-$canonicalRoot = "C:\Users\Matthew.Ford\.agents\agents"
-$claudeRoot = "C:\Users\Matthew.Ford\.claude\agents"
-$devinRoot = "C:\Users\Matthew.Ford\AppData\Roaming\devin\agents"
+# Default to installing for every supported tool so the target project
+# is compatible with whichever agentic tool the user happens to run.
+if (-not ($Claude -or $Devin -or $Cursor -or $Windsurf -or $All)) {
+    $All = $true
+}
+if ($All) {
+    $Claude = $true
+    $Devin = $true
+    $Cursor = $true
+    $Windsurf = $true
+}
 
-New-Item -ItemType Directory -Force -Path $claudeRoot | Out-Null
-New-Item -ItemType Directory -Force -Path $devinRoot | Out-Null
+$TargetDir = (Resolve-Path $TargetDir).Path
+$AgentsSource = Join-Path $PSScriptRoot "agents"
 
-foreach ($name in $agents) {
-    $canonicalFolder = Join-Path $canonicalRoot $name
-    $canonicalFile = Join-Path $canonicalFolder "AGENT.md"
+Write-Host "Installing agents from $AgentsSource into $TargetDir"
 
-    if (-not (Test-Path $canonicalFile)) {
-        Write-Host "SKIP $name — no AGENT.md at $canonicalFile" -ForegroundColor Yellow
-        continue
+# .agents\agents\<name> is the canonical, tool-agnostic install location.
+# Every tool-specific directory below is just a shim pointing into it, so
+# nothing but this one layer ever points back at the source repo.
+$canonicalRoot = Join-Path $TargetDir ".agents\agents"
+New-Item -ItemType Directory -Force -Path $canonicalRoot | Out-Null
+
+if ($Claude) {
+    $claudeRoot = Join-Path $TargetDir ".claude\agents"
+    New-Item -ItemType Directory -Force -Path $claudeRoot | Out-Null
+}
+
+if ($Devin) {
+    $devinRoot = Join-Path $TargetDir ".devin\agents"
+    New-Item -ItemType Directory -Force -Path $devinRoot | Out-Null
+}
+
+if ($Cursor -or $Windsurf) {
+    Write-Host "NOTE: Cursor and Windsurf have no file-based subagent/persona convention today, so agents are not installed for them (skills/commands still are)." -ForegroundColor Yellow
+}
+
+Get-ChildItem -Path $AgentsSource -Directory | ForEach-Object {
+    $agentDir = $_.FullName
+    $agentName = $_.Name
+    $agentFile = Join-Path $agentDir "AGENT.md"
+
+    if (-not (Test-Path $agentFile)) {
+        Write-Host "SKIP $agentName — no AGENT.md at $agentFile" -ForegroundColor Yellow
+        return
     }
 
-    # Claude: flat file symlink pointing at the canonical AGENT.md
-    $claudeFile = Join-Path $claudeRoot "$name.md"
-    if (Test-Path $claudeFile) { Remove-Item $claudeFile -Force }
-    New-Item -ItemType SymbolicLink -Path $claudeFile -Target $canonicalFile | Out-Null
+    # Canonical: whole-folder symlink into .agents\agents\<name>
+    $canonicalLink = Join-Path $canonicalRoot $agentName
+    if (Test-Path $canonicalLink) { Remove-Item $canonicalLink -Recurse -Force }
+    New-Item -ItemType SymbolicLink -Path $canonicalLink -Target $agentDir | Out-Null
+    Write-Host "Linked canonical: $canonicalLink -> $agentDir"
 
-    # Devin: whole-folder symlink, same shape as canonical already
-    $devinFolder = Join-Path $devinRoot $name
-    if (Test-Path $devinFolder) { Remove-Item $devinFolder -Recurse -Force }
-    New-Item -ItemType SymbolicLink -Path $devinFolder -Target $canonicalFolder | Out-Null
+    if ($Claude) {
+        # Claude: flat file symlink pointing at the canonical AGENT.md
+        $claudeFile = Join-Path $claudeRoot "$agentName.md"
+        if (Test-Path $claudeFile) { Remove-Item $claudeFile -Force }
+        New-Item -ItemType SymbolicLink -Path $claudeFile -Target (Join-Path $canonicalLink "AGENT.md") | Out-Null
+        Write-Host "Linked Claude: $claudeFile -> $canonicalLink\AGENT.md"
+    }
 
-    Write-Host "Linked: $name"
+    if ($Devin) {
+        # Devin: whole-folder symlink, same shape as canonical already
+        $devinFolder = Join-Path $devinRoot $agentName
+        if (Test-Path $devinFolder) { Remove-Item $devinFolder -Recurse -Force }
+        New-Item -ItemType SymbolicLink -Path $devinFolder -Target $canonicalLink | Out-Null
+        Write-Host "Linked Devin: $devinFolder -> $canonicalLink"
+    }
 }
+
+Write-Host "Done."

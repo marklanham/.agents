@@ -1,9 +1,42 @@
 # AI Agent & Skill Library
 
-A central repository of reusable agent definitions and command skills for Claude and Devin. This repo is the canonical source; the PowerShell scripts in the root symlink them into the tool-specific directories so the agents are picked up by each assistant.
+A central repository of reusable agent definitions and command skills for Claude, Devin, Cursor, and Windsurf. This repo is the canonical source; the install scripts in the root symlink them into a target project.
 
-- `agents-symlink.ps1` — links `agents/<name>/AGENT.md` into `~/.claude/agents/<name>.md` and `~/.devin/agents/<name>`.
-- `skills-symlink.ps1` — links `skills/<name>` into `~/.claude/skills/<name>` and removes stale Devin duplicates.
+## Install layout
+
+Running the scripts against a target project creates one tool-agnostic canonical
+layer, `.agents/`, made of whole-folder symlinks back to this repo. Every
+tool-specific directory is then just a shim symlinking into `.agents/`, never
+back to this repo directly:
+
+```
+<target project>/
+├── .agents/
+│   ├── agents/<name>/AGENT.md      -> symlink to this repo's agents/<name>
+│   └── skills/<name>/SKILL.md      -> symlink to this repo's skills/<name>
+├── .claude/
+│   ├── agents/<name>.md            -> symlink to .agents/agents/<name>/AGENT.md
+│   └── skills/<name>/              -> symlink to .agents/skills/<name>
+├── .devin/
+│   ├── agents/<name>/               -> symlink to .agents/agents/<name>
+│   └── skills/<name>/               -> symlink to .agents/skills/<name>
+├── .cursor/
+│   └── commands/<name>.md          -> symlink to .agents/skills/<name>/SKILL.md
+└── .windsurf/
+    └── workflows/<name>.md         -> symlink to .agents/skills/<name>/SKILL.md
+```
+
+Cursor and Windsurf don't have a file-based subagent/persona convention today,
+so only skills (as commands/workflows) are installed for them — agents are
+Claude- and Devin-only for now.
+
+- `agents-symlink.sh` / `agents-symlink.ps1` — installs `agents/<name>/AGENT.md` for the requested tools (`--claude`, `--devin`, `--cursor`, `--windsurf`, or `--all` — default is `--all`).
+- `skills-symlink.sh` / `skills-symlink.ps1` — installs `skills/<name>/SKILL.md` for the requested tools (same flags, default is `--all`).
+
+Because every skill's `SKILL.md` resolves agents by checking `.agents/agents/<name>/AGENT.md` first
+(falling back through `.claude/agents/`, `.devin/agents/`, then `~/.claude/agents/`), the same
+skill works whether it was invoked from Claude, Devin, or a project that only has the
+canonical `.agents/` layer checked in.
 
 ---
 
@@ -85,22 +118,25 @@ Skills are top-level commands that can be invoked by the user to drive a complet
 │   ├── ship/
 │   ├── ui-review/
 │   └── verify-fix/
+├── agents-symlink.sh
 ├── agents-symlink.ps1
+├── skills-symlink.sh
 ├── skills-symlink.ps1
-├── .gitignore
-└── hooks/
-    ├── hooks.json
-    └── scripts/
+└── .gitignore
 ```
 
 ---
 
 ## Usage
 
-1. Run the symlink scripts to make the agents and skills available to Claude and Devin:
+1. Run the symlink scripts to make the agents and skills available to Claude, Devin, Cursor, and Windsurf (defaults to installing for all four; pass `--claude`/`--devin`/`--cursor`/`--windsurf` to limit it):
+   ```bash
+   ./agents-symlink.sh /path/to/target-project
+   ./skills-symlink.sh /path/to/target-project
+   ```
    ```powershell
-   ./agents-symlink.ps1
-   ./skills-symlink.ps1
+   ./agents-symlink.ps1 -TargetDir C:\path\to\target-project
+   ./skills-symlink.ps1 -TargetDir C:\path\to\target-project
    ```
 2. Start a skill from inside the target project:
    ```

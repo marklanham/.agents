@@ -103,7 +103,7 @@ Save to `{task-slug}-R2-{persona}.md` for each.
 
 Execute the Director binding decision inline — do not spawn a subagent.
 
-1. Read `~/.claude/agents/director.md` for the DECISION.md schema
+1. Resolve the `director` agent by checking, in order: `.agents/agents/director/AGENT.md` → `.claude/agents/director.md` → `.devin/agents/director/AGENT.md` → `~/.claude/agents/director.md`. Read the first one found for the DECISION.md schema
 2. All 12 discussion outputs (R1 + R2) are already in context
 3. Synthesise into a binding DECISION.md:
    - Verdict: `PROCEED` | `PROCEED WITH MODIFICATIONS` | `DEFER` | `REJECT`
